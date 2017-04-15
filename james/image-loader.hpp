@@ -18,6 +18,8 @@
 */
 #pragma once
 
+#include <istream>
+
 #include "image-loader/image.hpp"
 #include "image-loader/load-png.hpp"
 #include "image-loader/load-jpeg.hpp"

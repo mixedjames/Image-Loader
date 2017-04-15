@@ -32,22 +32,11 @@ To match my build process, decompress both archives to the lib directory within 
 Image-Loader project space.
 
 ### Step 2: build zlib
-Navigate to `*image-loader-root*/lib/zlib/contrib/vstudio/vc14` and open `zlibvc.sln`.
-
-There are many projects within this solution but you only need to build two:
-1. ZlibStat debug (I build for x86 but choose whatever architecture you're using)
-2. ZlibStat release (or ZlibstatReleaseWithoutASM - it's easier to configure!)
-
-This will create various things but what you need are:
-1. `x86/ZlibStatDebug/zlibstat.lib`
-2. `x86/ZlibRelease/zlibstat.lib`
-
-I copied them to my `*image-loader-root*/lib/bin` folder, renaming them as follows:
-1. `zlib-x86d.lib` (for the debug library)
-2. `zlib-x86.lib` (for the release library)
+Step 2 used to be to build zlib but actually it turns out its easier to let libPNG do
+it for you.
 
 ### Step 3: build libpng
-Navigate to `*image-loader-root*/lib/libpng/projects/vstudio.`
+Navigate to `*image-loader-root*/lib/libpng/projects/vstudio`.
 
 Open the file `zlib.props` and find the line `<ZLibSrcDir>...</ZLibSrcDir>`.
 This path must point to your zlib installation. If you're copying my system that would be
@@ -61,6 +50,18 @@ following projects (most easily done using the Batch Build feature):
 This will create two files which need to be copied and renamed as before:
 1. `Debug Library/libpng16.lib` --> `/lib/bin/libpng16-x86d.lib`
 2. `Release Library/libpng16.lib` --> `/lib/bin/libpng16-x86.lib`
+
+## Step 3b: zlib
+When you build libpng this will automatically trigger building the required zlib files.
+You'll need to extract them and put them in the `lib/bin` directory too.
+
+First navigate to the libPNG VS project root. (`*image-loader-root*/lib/libpng/projects/vstudio`)
+The enter the `zlib` directory.
+
+If you built the libpng library builds then you should find two directories containing the
+lib files you need:
+1. `Debug Library/zlib.lib` --> `/lib/bin/zlib-x86d.lib`
+1. `Release Library/zlib.lib` --> `/lib/bin/zlib-x86.lib`
 
 ### Step 4: that's it!
 If you've copied my file structure then the files in `/vs2015/` should just work. If

@@ -37,8 +37,8 @@ namespace james {
     unsigned int Width() const noexcept { return w_; }
     unsigned int Height() const noexcept { return h_; }
 
-    const unsigned char* pixels() const noexcept { return pixels_; }
-    unsigned char* pixels() noexcept { return pixels_; }
+    const unsigned char* Pixels() const noexcept { return pixels_; }
+    unsigned char* Pixels() noexcept { return pixels_; }
 
   private:
     unsigned int w_, h_;

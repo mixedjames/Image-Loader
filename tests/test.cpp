@@ -1,14 +1,19 @@
 #include <james/image-loader.hpp>
 #include <iostream>
-
+#include <fstream>
 
 int main() {
-  james::Image a;
-  james::Image b(100, 200);
+  std::ifstream src("Tux.png", std::ios::in | std::ios::binary);
+  if (!src.good()) {
+    std::cout << "Failed to open file.";
+    return 0;
+  }
 
-  a = std::move(b);
+  {
+    james::Image a(james::LoadPNG(src));
+    std::cout << "Loaded image. (" << a.Width() << "x" << a.Height() << ")\n";
+  }
 
-  std::cout << "Hellooo!";
   std::cin.get();
 
   return 0;
