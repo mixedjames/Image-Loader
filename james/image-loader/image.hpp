@@ -25,7 +25,7 @@ namespace james {
     Image(const Image&);
     Image(Image&&) noexcept;
 
-    Image(unsigned int w, unsigned int h);
+    Image(unsigned int w, unsigned int h, unsigned int bpp);
 
     ~Image() noexcept;
 
@@ -36,12 +36,13 @@ namespace james {
 
     unsigned int Width() const noexcept { return w_; }
     unsigned int Height() const noexcept { return h_; }
+    unsigned int BitsPerPixel() const noexcept { return bpp_; }
 
     const unsigned char* Pixels() const noexcept { return pixels_; }
     unsigned char* Pixels() noexcept { return pixels_; }
 
   private:
-    unsigned int w_, h_;
+    unsigned int w_, h_, bpp_;
     unsigned char* pixels_;
   };
 

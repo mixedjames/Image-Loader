@@ -98,6 +98,9 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>libpng16-x86d.lib;zlib-x86d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <Manifest>
+      <EnableDpiAwareness>true</EnableDpiAwareness>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -122,6 +125,9 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>libpng16-x86.lib;zlib-x86.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <Manifest>
+      <EnableDpiAwareness>true</EnableDpiAwareness>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>

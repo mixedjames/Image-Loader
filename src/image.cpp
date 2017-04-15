@@ -19,31 +19,33 @@
 #include <james/image-loader.hpp>
 #include <cstring>
 #include <algorithm>
+#include <cassert>
 
 namespace james {
 
   Image::Image()
-    : w_(0), h_(0), pixels_(nullptr)
+    : w_(0), h_(0), bpp_(32), pixels_(nullptr)
   {
   }
 
   Image::Image(const Image& src)
-    : w_(src.w_), h_(src.h_), pixels_(new unsigned char[w_*h_*4])
+    : w_(src.w_), h_(src.h_), bpp_(src.bpp_), pixels_(new unsigned char[w_*h_*(src.bpp_>>3)])
   {
     std::memcpy(pixels_, src.pixels_, w_*h_*4);
   }
 
   Image::Image(Image&& src) noexcept
-    : w_(src.w_), h_(src.h_), pixels_(src.pixels_)
+    : w_(src.w_), h_(src.h_), bpp_(src.bpp_), pixels_(src.pixels_)
   {
     src.w_ = 0;
     src.h_ = 0;
     src.pixels_ = nullptr;
   }
 
-  Image::Image(unsigned int w, unsigned int h)
-    : w_(w), h_(h), pixels_(new unsigned char[w*h*4])
+  Image::Image(unsigned int w, unsigned int h, unsigned int bpp)
+    : w_(w), h_(h), bpp_(bpp), pixels_(new unsigned char[w*h*(bpp>>3)])
   {
+    assert(bpp == 24 || bpp == 32);
   }
 
   Image::~Image() noexcept {
@@ -65,6 +67,7 @@ namespace james {
   void Image::Swap(Image& src) noexcept {
     std::swap(w_, src.w_);
     std::swap(h_, src.h_);
+    std::swap(bpp_, src.bpp_);
     std::swap(pixels_, src.pixels_);
   }
 
