@@ -9,7 +9,7 @@ james::Image jpeg;
 
 void FlipByteOrder(james::Image& i) {
   unsigned char* pixel = i.Pixels();
-  unsigned char* end = &i.Pixels()[i.Width()*i.Height()*4];
+  unsigned char* end = &i.Pixels()[i.Width()*i.Height()*(i.BitsPerPixel() >> 3)];
 
   while (pixel != end) {
     std::swap(pixel[0], pixel[2]);
@@ -17,23 +17,29 @@ void FlipByteOrder(james::Image& i) {
   }
 }
 
-void Paint(HDC dc) {
+void DrawImage(HDC dc, const james::Image& img, int x, int y) {
   BITMAPINFO bmi = {};
   bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-  bmi.bmiHeader.biWidth = png.Width();
-  bmi.bmiHeader.biHeight = -(int)png.Height();
+  bmi.bmiHeader.biWidth = img.Width();
+  bmi.bmiHeader.biHeight = -(int)img.Height();
   bmi.bmiHeader.biPlanes = 1;
-  bmi.bmiHeader.biBitCount = png.BitsPerPixel();
+  bmi.bmiHeader.biBitCount = img.BitsPerPixel();
   bmi.bmiHeader.biCompression = BI_RGB;
 
   int result = StretchDIBits(
     dc,
-    0, 0, png.Width(), png.Height(), // dst rect
-    0, 0, png.Width(), png.Height(), // src rect
-    png.Pixels(), &bmi, 0, SRCCOPY
-    );
+    x, y, img.Width(), img.Height(), // dst rect
+    0, 0, img.Width(), img.Height(), // src rect
+    img.Pixels(), &bmi, 0, SRCCOPY
+  );
 
   assert(result > 0);
+
+}
+
+void Paint(HDC dc) {
+  DrawImage(dc, jpeg, 0, 0);
+  DrawImage(dc, png, 300, 0);
 }
 
 LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
@@ -56,10 +62,15 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 
 int main() {
   std::ifstream src("Tux.png", std::ios::in | std::ios::binary);
-  assert(src.good());
+  std::ifstream src2("img4.jpg", std::ios::in | std::ios::binary);
+
+  assert(src.good() && src2.good());
+
   png = james::LoadPNG(src);
+  jpeg = james::LoadJPEG(src2);
 
   FlipByteOrder(png);
+  FlipByteOrder(jpeg);
 
   WNDCLASS wc = {};
   wc.lpfnWndProc = WndProc;

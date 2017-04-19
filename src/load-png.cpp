@@ -30,12 +30,16 @@ namespace james {
 
   namespace {
 
+    // PNGLoaderState
+    //
+    // Gateway between LoadPNG & ReadBytes
+    //
     struct PNGLoaderState {
       std::istream& src;
       char* errorMessage;
       std::exception_ptr currentError;
 
-      PNGLoaderState(std::istream& src) : src(src) {}
+      PNGLoaderState(std::istream& src) : src(src), errorMessage(nullptr) {}
     };
 
     void ReadBytes(png_structp png, png_bytep buffer, png_size_t length)
