@@ -20,6 +20,7 @@
 #include <cstring>
 #include <algorithm>
 #include <cassert>
+#include <stdexcept>
 
 namespace james {
 
@@ -45,7 +46,13 @@ namespace james {
   Image::Image(unsigned int w, unsigned int h, unsigned int bpp)
     : w_(w), h_(h), bpp_(bpp), pixels_(new unsigned char[w*h*(bpp>>3)])
   {
-    assert(bpp == 24 || bpp == 32);
+#ifndef NDEBUG
+    assert(bpp == 8 || bpp == 24 || bpp == 32);
+#endif
+
+    if (bpp != 8 && bpp != 24 && bpp != 32) {
+      throw std::invalid_argument("james::Image only supports 8, 24 & 32bpp images.");
+    }
   }
 
   Image::~Image() noexcept {

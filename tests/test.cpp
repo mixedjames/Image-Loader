@@ -62,7 +62,7 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 
 int main() {
   std::ifstream src("Tux.png", std::ios::in | std::ios::binary);
-  std::ifstream src2("img4.jpg", std::ios::in | std::ios::binary);
+  std::ifstream src2("stone.jpg", std::ios::in | std::ios::binary);
 
   assert(src.good() && src2.good());
 

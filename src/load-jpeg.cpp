@@ -40,30 +40,78 @@ namespace james {
 
       jmp_buf errHandler;
       std::istream& stream;
+      std::ios::iostate streamExceptionState;
       std::vector<JOCTET> buffer;
       std::exception_ptr currentError;
 
-      JPEGDecompressionAdapter(std::istream& src) : stream(src), buffer(1024) {}
+      JPEGDecompressionAdapter(std::istream& src)
+        : base(), stream(src), streamExceptionState(src.exceptions()), buffer(1024)
+      {
+        // Note 1: we *must not* call jpeg_create_decompress here. See loadJPEG for why
+
+        // Note 2: this might (???) be able to throw an exception. This is safe because
+        //       although JPEGDecompressionAdapter does directly own a resource (jpeg_decompress_struct)
+        //       this is not initialised until later (see note 1) so no specific cleanup is
+        //       needed in the exceptional case.
+        src.exceptions(std::istream::failbit | std::istream::badbit | std::istream::eofbit);
+      }
+
+      ~JPEGDecompressionAdapter() {
+        jpeg_destroy_decompress(&base);
+
+        // Note: this could potentially throw an exceptions. I'm pretty sure it wont, because
+        //       we are only ever making the exception behaviour *less* likely to throw,
+        //       but none-the-less, having potentially throwing code in a destructor
+        //       makes me uneasy.
+        //
+        //       At the moment we just handle this by having it as the last action in the
+        //       destructor (so any clean-up will definitely happen) & then propagate
+        //       the exception.
+        //
+        src.exceptions(streamExceptionState);
+      }
     };
 
+    // Install a custom error hander that returns to our main control code so that
+    // correct clean-up and propagation of the error can occur.
+    //
     void InstallErrorHandlers(JPEGDecompressionAdapter& jpeg) {
       jpeg.base.err = jpeg_std_error(&jpeg.err);
       
       jpeg.err.error_exit = [](j_common_ptr cptr) {
         JPEGDecompressionAdapter* jpeg = reinterpret_cast<JPEGDecompressionAdapter*>(cptr);
-
         longjmp(jpeg->errHandler, 1);
       };
     }
 
+    // Configures a custom data source based on a std::istream to feed the JPEG
+    // decompressor.
+    //
     void InstallIOAdapter(JPEGDecompressionAdapter& jpeg) {
       jpeg.base.src = &jpeg.src;
 
-      jpeg.src.next_input_byte = &jpeg.buffer[0];
+      // Setting bytes_in_buffer = 0 means that an immediate call to fill_input_buffer
+      // is generated when decompression is attempted. 
+      jpeg.src.next_input_byte = nullptr;
       jpeg.src.bytes_in_buffer = 0;
 
+      // We do init & clean-up elsewhere in the system so these functions
+      // are no-op.
       jpeg.src.init_source = [](j_decompress_ptr) {};
       jpeg.src.term_source = [](j_decompress_ptr) {};
+
+      // According to my reading of the libjpeg spec, the standard function should
+      // do what we want so I don't fiddle with this.
+      jpeg.src.resync_to_restart = jpeg_resync_to_restart;
+
+      // fill_input_buffer & skip_input_data are where the action is...
+      //
+      // They both go to great lengths to correctly adapt exceptions. Basic idea is:
+      // (1) Perform *all* actions that could throw within a try/catch
+      // (2) Store the current exception within our JPEGDecompressionAdapter struct.
+      // (3) Call libjpeg error handling using the ERREXIT macro. (This function 
+      //     never returns) We then trust our custom error_exit handler to do the
+      //     right thing.
 
       jpeg.src.fill_input_buffer = [](j_decompress_ptr dptr) -> boolean {
         JPEGDecompressionAdapter* jpeg = (JPEGDecompressionAdapter*) dptr;
@@ -91,20 +139,31 @@ namespace james {
         }
       };
 
-      jpeg.src.resync_to_restart = [](j_decompress_ptr dptr, int desired) -> boolean {
-        return jpeg_resync_to_restart(dptr, desired);
-      };
     }
   }
 
   Image LoadJPEG(std::istream& src) {
 
+    // Sequence of actions is important here:
+    // (1) Call setjmp; must be first because error handler setup
+    //     depends on having a valid jmpbuf
+    // (2) Install error handling code; must be next because *ANY* calls
+    //     into libjpeg can potentially cause errors, including jpeg_create_decompress
+    // (3) Create the decompressor (jpeg_create_decompress)
+    // (4) Install the std::istream adapter code (requires a valid decompressor)
+    // (5) Read the JPEG header etc. (requires a valid data stream & decompressor)
+    // (6) Create the james::Image (can only happen after decompression has started
+    //     so that we know the dimensions)
+    // (7) Finally we be do the decompression & clean up
+    //
+    // Throwing exceptions within the body of LoadJPEG is fine because this will
+    // just trigger the destructor of JPEGDecompressionAdapter which will call
+    // jpeg_destroy_decompress and reset the stream.
+
     JPEGDecompressionAdapter jpeg(src);
     Image img;
 
     if (setjmp(jpeg.errHandler)) {
-      jpeg_destroy_decompress(&jpeg.base);
-
       if (jpeg.currentError) {
         std::rethrow_exception(jpeg.currentError);
       }
@@ -133,7 +192,9 @@ namespace james {
     }
 
     jpeg_finish_decompress(&jpeg.base);
-    jpeg_destroy_decompress(&jpeg.base);
+
+    // Remember: DON'T call jpeg_destroy_decompress; the destructor of
+    // JPEGDecompressionAdapter will do that for us.
 
     return img;
   }
