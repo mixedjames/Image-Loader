@@ -15,6 +15,38 @@ Legal stuff
 JWT is licensed under the LGPL 2.1.
 Copyright &copy; 2017 James Heggie
 
+Basic Usage
+-----------
+```C++
+#include <james/image-loader.hpp>
+#include <fstream>
+#include <iostream>
+
+using namespace james;
+using namespace std;
+
+int main() {
+
+  try {
+
+    std::ifstream src("my-image.png", std::ios::in | std::ios::binary);
+
+    if (!src.good()) {
+      cout << "File not found";
+      return 1;
+    }
+
+    Image i(LoadPNG(src));
+
+    cout << "Image loaded!";
+  }
+  catch (std::exception& e) {
+    cout << "An error occured --> " << e.what() << "\n";
+    return 1;
+  }
+}
+```
+
 Building JWT
 ------------
 A few important notes:
@@ -63,45 +95,25 @@ The enter the `zlib` directory.
 If you built the libpng library builds then you should find two directories containing the
 lib files you need:
 1. `Debug Library/zlib.lib` --> `/lib/bin/zlib-x86d.lib`
-1. `Release Library/zlib.lib` --> `/lib/bin/zlib-x86.lib`
+2. `Release Library/zlib.lib` --> `/lib/bin/zlib-x86.lib`
 
-### Step 4: lipjpeg
+### Step 4: libjpeg
 
+libJPEG doesn't come with build files for VC2015 and the VC files it does come with are
+rather old. I have include my VC project files in the Git repo:
 
+`*image-loader-root*/lib/jpeg-6b/vc2015`
+
+These assume that libjpeg was decompressed into `*image-loader-root*/lib/jpeg-6b`. They
+will generate debig & release libraries named `libjpeg.lib`.
+
+As before you will need to rename and move them for the default Image-Loader build
+process to work:
+
+1. `Debug/libjpeg.lib` --> `/lib/bin/libjpeg-x86d.lib`
+2. `Release/libjpeg.lib` --> `/lib/bin/libjpeg-x86.lib`
 
 ### Step 4: that's it!
 If you've copied my file structure then the files in `/vs2015/` should just work. If
 you've done your own thing then you'll need to adjust your include and library paths
 accordingly.
-
-Basic Usage
------------
-```
-#include <james/image-loader.hpp>
-#include <fstream>
-#include <iostream>
-
-using namespace james;
-using namespace std;
-
-int main() {
-
-  try {
-
-    std::ifstream src("my-image.png", std::ios::in | std::ios::binary);
-
-    if (!src.good()) {
-      cout << "File not found";
-      return 1;
-    }
-
-    Image i(LoadPNG(src));
-
-    cout << "Image loaded!";
-  }
-  catch (std::exception& e) {
-    cout << "An error occured --> " << e.what() << "\n";
-    return 1;
-  }
-}
-```
