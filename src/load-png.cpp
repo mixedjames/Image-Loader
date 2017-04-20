@@ -30,121 +30,122 @@ namespace james {
 
   namespace {
 
-    // PNGLoaderState
-    //
-    // Gateway between LoadPNG & ReadBytes
-    //
-    struct PNGLoaderState {
-      std::istream& src;
-      char* errorMessage;
-      std::exception_ptr currentError;
+    struct PNGDataMgr {
+      png_structp png;
+      png_infop info;
 
-      PNGLoaderState(std::istream& src) : src(src), errorMessage(nullptr) {}
-    };
+      PNGDataMgr()
+        : png(nullptr), info(nullptr)
+      {
+        png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+        if (!png) {
+          throw std::runtime_error("libPNG internal error (png_create_read_struct failed)");
+        }
 
-    void ReadBytes(png_structp png, png_bytep buffer, png_size_t length)
-    {
-      PNGLoaderState* state = (PNGLoaderState*) png_get_io_ptr(png);
-
-      try {
-        if (length != state->src.rdbuf()->sgetn((char*)buffer, length)) {
-          png_error(png, "Unexpected end of file.");
+        info = png_create_info_struct(png);
+        if (!info) {
+          png_destroy_read_struct(&png, nullptr, nullptr);
+          throw std::runtime_error("libPNG internal error (png_create_info_struct failed)");
         }
       }
-      catch (...) {
-        state->currentError = std::current_exception();
-        png_error(png, "IO error.");
+
+      ~PNGDataMgr() {
+        png_destroy_read_struct(&png, &info, nullptr);
+      }
+    };
+
+    struct PNGLoaderState {
+      PNGDataMgr libPNG;
+      
+      std::istream& src;
+      std::ios::iostate streamExceptionState;
+
+      std::exception_ptr currentError;
+
+      PNGLoaderState(std::istream& src)
+        : src(src), streamExceptionState(src.exceptions())
+      {
+        src.exceptions(std::istream::failbit | std::istream::badbit | std::istream::eofbit);
       }
 
-      if (!state->src.good()) {
-        state->errorMessage = "IO error occured";
-        png_error(png, "IO error.");
+      ~PNGLoaderState() {
+        src.exceptions(streamExceptionState);
       }
+    };
+
+    void InstallIOAdapter(PNGLoaderState& state) {
+      png_set_read_fn(state.libPNG.png, &state, [](png_structp png, png_bytep buffer, png_size_t length) {
+
+        PNGLoaderState* state = (PNGLoaderState*) png_get_io_ptr(png);
+
+        try {
+          if (length != state->src.rdbuf()->sgetn((char*)buffer, length)) {
+            throw std::runtime_error("Unexpected end of file.");
+          }
+        }
+        catch (...) {
+          state->currentError = std::current_exception();
+          png_error(state->libPNG.png, "Exception adapter");
+        }
+
+      });
     }
   }
 
   Image LoadPNG(std::istream& src) {
-    PNGLoaderState state(src);
-
     Image img;
-    png_structp png = nullptr;
-    png_infop info = nullptr;
-    png_bytepp rowPtrs = nullptr;
-    unsigned char* dstPtr = nullptr;
-    size_t rowWidth;
+    PNGLoaderState state(src);
+    jmp_buf jmpBuf;
 
     png_uint_32 w;
     png_uint_32 h;
-    int channelWidth, nChannels;
+    int channelWidth;
+    int nChannels;
 
-    png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (!png) {
-      state.errorMessage = "Failed to initialise libpng (png_create_read_struct failed)";
-      goto onError;
+    png_bytepp rowPtrs = nullptr;
+    unsigned char* dstPtr = nullptr;
+
+    if (setjmp(jmpBuf)) {
+      if (state.currentError) {
+        std::rethrow_exception(state.currentError);
+      }
+      else {
+        throw std::runtime_error("An unspecified error occured.");
+      }
     }
 
-    info = png_create_info_struct(png);
-    if (!info) {
-      state.errorMessage = "Failed to initialise libpng (png_create_info_struct failed)";
-      goto onError;
-    }
+    InstallIOAdapter(state);
 
-    if (setjmp(png_jmpbuf(png))) {
-      state.errorMessage = "libPNG encountered an internal error (longjmp called)";
-      goto onError;
-    }
-
-    png_set_read_fn(png, &state, ReadBytes);
     png_read_png(
-      png, info,
+      state.libPNG.png, state.libPNG.info,
       PNG_TRANSFORM_SCALE_16 | PNG_TRANSFORM_PACKING | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_GRAY_TO_RGB,
       nullptr);
+
+    w = png_get_image_width(state.libPNG.png, state.libPNG.info);
+    h = png_get_image_height(state.libPNG.png, state.libPNG.info);
+    channelWidth = png_get_bit_depth(state.libPNG.png, state.libPNG.info);
+    nChannels = png_get_channels(state.libPNG.png, state.libPNG.info);
+
+    if (channelWidth != 8) {
+      throw std::runtime_error("PNG channel width was not 8. Only 8 is supported.");
+    }
+
+    if (nChannels != 3 && nChannels != 4) {
+      throw std::runtime_error("Number of PNG colour channels was neither 3 nor 4.");
+    }
+      
+    img = Image(w, h, nChannels << 3);
     
-    rowPtrs = png_get_rows(png, info);
-    w = png_get_image_width(png, info);
-    h = png_get_image_height(png, info);
-    channelWidth = png_get_bit_depth(png, info);
-    nChannels = png_get_channels(png, info);
-    rowWidth = w*nChannels;
-
-    try {
-      if (channelWidth != 8) {
-        throw std::runtime_error("LoadPNG internal error: channel width was not 8 bits");
-      }
-      if (nChannels != 3 && nChannels != 4) {
-        throw std::runtime_error("LoadPNG internal error: number of channels was not 3 or 4");
-      }
-
-      img = Image(w, h, nChannels<<3);
-    }
-    catch (...) {
-      state.currentError = std::current_exception();
-      goto onError;
-    }
-
-    std::size_t height = img.Height();
+    rowPtrs = png_get_rows(state.libPNG.png, state.libPNG.info);
     dstPtr = img.Pixels();
 
-    while (height --) {
-      memcpy(dstPtr, *rowPtrs, rowWidth);
+    while (h --) {
+      memcpy(dstPtr, *rowPtrs, w*nChannels);
 
-      dstPtr += rowWidth;
+      dstPtr += w*nChannels;
       rowPtrs++;
     }
 
-    png_destroy_read_struct(&png, &info, nullptr);
-
     return img;
-
-  onError:
-    if (png) { png_destroy_read_struct(&png, &info, nullptr); }
-
-    if (state.currentError) {
-      std::rethrow_exception(state.currentError);
-    }
-    else {
-      throw std::runtime_error(state.errorMessage);
-    }
   }
-
 }

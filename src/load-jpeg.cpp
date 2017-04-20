@@ -45,7 +45,7 @@ namespace james {
       std::exception_ptr currentError;
 
       JPEGDecompressionAdapter(std::istream& src)
-        : base(), stream(src), streamExceptionState(src.exceptions()), buffer(1024)
+        : base(), stream(src), streamExceptionState(stream.exceptions()), buffer(1024)
       {
         // Note 1: we *must not* call jpeg_create_decompress here. See loadJPEG for why
 
@@ -53,7 +53,7 @@ namespace james {
         //       although JPEGDecompressionAdapter does directly own a resource (jpeg_decompress_struct)
         //       this is not initialised until later (see note 1) so no specific cleanup is
         //       needed in the exceptional case.
-        src.exceptions(std::istream::failbit | std::istream::badbit | std::istream::eofbit);
+        stream.exceptions(std::istream::failbit | std::istream::badbit | std::istream::eofbit);
       }
 
       ~JPEGDecompressionAdapter() {
@@ -68,7 +68,7 @@ namespace james {
         //       destructor (so any clean-up will definitely happen) & then propagate
         //       the exception.
         //
-        src.exceptions(streamExceptionState);
+        stream.exceptions(streamExceptionState);
       }
     };
 
@@ -180,6 +180,10 @@ namespace james {
 
     jpeg_read_header(&jpeg.base, true);
     jpeg_start_decompress(&jpeg.base);
+
+    if (jpeg.base.num_components != 1 && jpeg.base.num_components != 3) {
+      throw std::runtime_error("Unsupported JPEG image type.");
+    }
 
     img = Image(jpeg.base.image_width, jpeg.base.image_height, jpeg.base.num_components << 3);
 
