@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <cassert>
 #include <vector>
+#include <algorithm>
 #include <png.h>
 
 #include <iostream>
@@ -30,6 +31,9 @@ namespace james {
 
   namespace {
 
+    // PNGDataMgr is a RAII type for managing the two key structures used in libPNG:
+    // --> png_structp & png_infop
+    //
     struct PNGDataMgr {
       png_structp png;
       png_infop info;
@@ -54,25 +58,45 @@ namespace james {
       }
     };
 
+    // PNGLoaderState bundles up all the data needed for a LoadPNG call so that it can
+    // be accessible to callback functions that get a single data pointer for context.
+    //
     struct PNGLoaderState {
       PNGDataMgr libPNG;
       
+      Image img;
+
       std::istream& src;
       std::ios::iostate streamExceptionState;
 
+      jmp_buf jmpBuf;
       std::exception_ptr currentError;
 
       PNGLoaderState(std::istream& src)
         : src(src), streamExceptionState(src.exceptions())
       {
+        // Note: this might (???) be able to throw an exception. This is safe because
+        //       PNGLoaderState does not directly own any raw resources - they are all
+        //       wrapped up in manager objects.
         src.exceptions(std::istream::failbit | std::istream::badbit | std::istream::eofbit);
       }
 
       ~PNGLoaderState() {
+        // Note: this could potentially throw an exceptions. I'm pretty sure it wont, because
+        //       we are only ever making the exception behaviour *less* likely to throw,
+        //       but none-the-less, having potentially throwing code in a destructor
+        //       makes me uneasy.
+        //
+        //       At the moment we just handle this by having it as the last action in the
+        //       destructor (so any clean-up will definitely happen) & then propagate
+        //       the exception.
+        //
         src.exceptions(streamExceptionState);
       }
     };
 
+    // Setup our std::istream adapter callback
+    //
     void InstallIOAdapter(PNGLoaderState& state) {
       png_set_read_fn(state.libPNG.png, &state, [](png_structp png, png_bytep buffer, png_size_t length) {
 
@@ -93,9 +117,16 @@ namespace james {
   }
 
   Image LoadPNG(std::istream& src) {
-    Image img;
+    // LoadPNG has a specific order of operation...
+    // (1) Allocate PNGLoaderState - we now have the PNG data structures needed
+    // (2) Call setjmp to setup error handling (pretty much any libPNG call can
+    //     fail with a longjmp but NOT create_read/info_struct - unlike libJPEG)
+    // (3) Install the std::istream IO adapter
+    // (4) Read the whole image into memory & decompress
+    // (5) Allocate the iImage (using the newly known image dimensions) and 
+    //     copy the decompressed data into it
+
     PNGLoaderState state(src);
-    jmp_buf jmpBuf;
 
     png_uint_32 w;
     png_uint_32 h;
@@ -105,7 +136,7 @@ namespace james {
     png_bytepp rowPtrs = nullptr;
     unsigned char* dstPtr = nullptr;
 
-    if (setjmp(jmpBuf)) {
+    if (setjmp(state.jmpBuf)) {
       if (state.currentError) {
         std::rethrow_exception(state.currentError);
       }
@@ -126,6 +157,11 @@ namespace james {
     channelWidth = png_get_bit_depth(state.libPNG.png, state.libPNG.info);
     nChannels = png_get_channels(state.libPNG.png, state.libPNG.info);
 
+    // I *think* that the combination of transform flags passed to png_read_png means that we should
+    // only ever get 8 bit channels with 3 or 4 components per pixel, however, I'm not quite sure so
+    // in the spirit of "belt and braces" we check and throw anyway... (since if I'm wrong we would
+    // have a buffer overrun which is a mjor security cock up)
+
     if (channelWidth != 8) {
       throw std::runtime_error("PNG channel width was not 8. Only 8 is supported.");
     }
@@ -134,18 +170,18 @@ namespace james {
       throw std::runtime_error("Number of PNG colour channels was neither 3 nor 4.");
     }
       
-    img = Image(w, h, nChannels << 3);
+    state.img = Image(w, h, nChannels << 3);
     
     rowPtrs = png_get_rows(state.libPNG.png, state.libPNG.info);
-    dstPtr = img.Pixels();
+    dstPtr = state.img.Pixels();
 
     while (h --) {
-      memcpy(dstPtr, *rowPtrs, w*nChannels);
+      memcpy(dstPtr, *rowPtrs, std::min(w*nChannels, ByteSize(state.img)));
 
       dstPtr += w*nChannels;
       rowPtrs++;
     }
 
-    return img;
+    return state.img;
   }
 }

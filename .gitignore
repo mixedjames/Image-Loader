@@ -2,7 +2,8 @@
 ## Project specific
 #################
 lib/
-!lib/bin/
+!lib/bin
+!lib/bin/**
 
 #################
 ## Eclipse

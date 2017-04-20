@@ -28,7 +28,9 @@ zlib is here: [http://www.zlib.net/]http://www.zlib.net/
 
 libpng is here: [http://www.libpng.org/pub/png/]http://www.libpng.org/pub/png/
 
-To match my build process, decompress both archives to the lib directory within the
+libjpeg is here: [https://sourceforge.net/projects/libjpeg/files/]
+
+To match my build process, decompress all 3 archives to the lib directory within the
 Image-Loader project space.
 
 ### Step 2: build zlib
@@ -63,6 +65,10 @@ lib files you need:
 1. `Debug Library/zlib.lib` --> `/lib/bin/zlib-x86d.lib`
 1. `Release Library/zlib.lib` --> `/lib/bin/zlib-x86.lib`
 
+### Step 4: lipjpeg
+
+
+
 ### Step 4: that's it!
 If you've copied my file structure then the files in `/vs2015/` should just work. If
 you've done your own thing then you'll need to adjust your include and library paths
@@ -70,4 +76,32 @@ accordingly.
 
 Basic Usage
 -----------
-Pending
+```
+#include <james/image-loader.hpp>
+#include <fstream>
+#include <iostream>
+
+using namespace james;
+using namespace std;
+
+int main() {
+
+  try {
+
+    std::ifstream src("my-image.png", std::ios::in | std::ios::binary);
+
+    if (!src.good()) {
+      cout << "File not found";
+      return 1;
+    }
+
+    Image i(LoadPNG(src));
+
+    cout << "Image loaded!";
+  }
+  catch (std::exception& e) {
+    cout << "An error occured --> " << e.what() << "\n";
+    return 1;
+  }
+}
+```

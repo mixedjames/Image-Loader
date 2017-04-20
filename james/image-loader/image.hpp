@@ -102,4 +102,7 @@ namespace james {
     unsigned char* pixels_;
   };
 
+  inline std::size_t ByteSize(const Image& img) {
+    return img.Width()*img.Height()*(img.BitsPerPixel() >> 3);
+  }
 }
