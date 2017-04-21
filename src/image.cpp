@@ -32,7 +32,7 @@ namespace james {
   Image::Image(const Image& src)
     : w_(src.w_), h_(src.h_), bpp_(src.bpp_), pixels_(new unsigned char[w_*h_*(src.bpp_>>3)])
   {
-    std::memcpy(pixels_, src.pixels_, w_*h_*4);
+    std::memcpy(pixels_, src.pixels_, w_*h_*(src.bpp_>>3));
   }
 
   Image::Image(Image&& src) noexcept

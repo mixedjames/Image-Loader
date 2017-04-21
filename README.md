@@ -52,15 +52,15 @@ Building JWT
 A few important notes:
 1. I am currently working using Visual Studio 2015 so instructions are all relative
    to this version of VS.
-2. Image-Loader depends on libpng, and as a consequence also depends on zlib. Fortunately
-   both a easy to build on Visual Studio 2015.
+2. Image-Loader depends on libjpeg and libpng, and as a consequence also depends on zlib.
+   Fortunately both a easy to build on Visual Studio 2015.
 
 ### Step 1: download the latest versions
-zlib is here: [http://www.zlib.net/]http://www.zlib.net/
+zlib is here: http://www.zlib.net/
 
-libpng is here: [http://www.libpng.org/pub/png/]http://www.libpng.org/pub/png/
+libpng is here: http://www.libpng.org/pub/png/
 
-libjpeg is here: [https://sourceforge.net/projects/libjpeg/files/]
+libjpeg is here: https://sourceforge.net/projects/libjpeg/files/
 
 To match my build process, decompress all 3 archives to the lib directory within the
 Image-Loader project space.
@@ -105,7 +105,7 @@ rather old. I have include my VC project files in the Git repo:
 `*image-loader-root*/lib/jpeg-6b/vc2015`
 
 These assume that libjpeg was decompressed into `*image-loader-root*/lib/jpeg-6b`. They
-will generate debig & release libraries named `libjpeg.lib`.
+will generate debug & release libraries named `libjpeg.lib`.
 
 As before you will need to rename and move them for the default Image-Loader build
 process to work:

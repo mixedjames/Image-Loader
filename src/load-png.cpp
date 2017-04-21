@@ -176,7 +176,7 @@ namespace james {
     dstPtr = state.img.Pixels();
 
     while (h --) {
-      memcpy(dstPtr, *rowPtrs, std::min(w*nChannels, ByteSize(state.img)));
+      memcpy(dstPtr, *rowPtrs, w*nChannels);
 
       dstPtr += w*nChannels;
       rowPtrs++;

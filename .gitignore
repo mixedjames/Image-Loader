@@ -1,9 +1,8 @@
-#################
-## Project specific
-#################
-lib/
-!lib/bin
-!lib/bin/**
+##################################
+#
+# See end of file for custom rules
+#
+##################################
 
 #################
 ## Eclipse
@@ -12,7 +11,7 @@ lib/
 *.pydevproject
 .project
 .metadata
-bin/
+# bin/
 tmp/
 *.tmp
 *.bak
@@ -221,3 +220,15 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+
+#################
+## Project specific
+#################
+lib/libpng
+lib/zlib
+lib/jpeg-6b/**
+!lib/jpeg-6b/vc2015/
+!lib/jpeg-6b/vc2015/libjpeg.sln
+!lib/jpeg-6b/vc2015/libjpeg.vcxproj
+!lib/bin
+!lib/bin/**
