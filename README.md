@@ -47,7 +47,7 @@ int main() {
 }
 ```
 
-Building JWT
+Building Image-Loader
 ------------
 A few important notes:
 1. I am currently working using Visual Studio 2015 so instructions are all relative

@@ -117,6 +117,12 @@ namespace james {
         JPEGDecompressionAdapter* jpeg = (JPEGDecompressionAdapter*) dptr;
 
         try {
+          // FIXME: we're probably not doing the right thing with EOF here
+          //        Docs suggest that an unexpected EOF should trigger
+          //        writing EOF markers to the buffer repeatedly until
+          //        the decoder gives up and stops to allow partial decoding
+          //        of broken streams. We don't.
+
           jpeg->src.bytes_in_buffer = (std::size_t) jpeg->stream.rdbuf()->sgetn(
             (char*)&jpeg->buffer[0], jpeg->buffer.size());
           jpeg->src.next_input_byte = &jpeg->buffer[0];
@@ -131,7 +137,27 @@ namespace james {
       jpeg.src.skip_input_data = [](j_decompress_ptr dptr, long l) {
         JPEGDecompressionAdapter* jpeg = (JPEGDecompressionAdapter*)dptr;
         try {
-          jpeg->stream.seekg(l, std::ios::cur);
+          if (l <= 0) {
+            return;
+          }
+
+          // Note: signed/unsigned mismatch is safe because we have already checked for
+          //       the < 0 case.
+          if ((unsigned long)l <= jpeg->src.bytes_in_buffer) {
+            // Skip-amount < bytes remaining, so...
+            // - Advance the buffer the requisite number of bytes
+            // - Don't touch the underlying stream
+            jpeg->src.bytes_in_buffer -= l;
+            jpeg->src.next_input_byte += l;
+          }
+          else {
+            // Skip-amount >= bytes in buffer, so...
+            // - Advance the stream (remembering to subtract the bytes left in
+            //   the buffer - we've already read them so don't skip twice!)
+            // - Mark the buffer as empty to trigger a fill_input_buffer call
+            jpeg->stream.seekg(l - jpeg->src.bytes_in_buffer, std::ios::cur);
+            jpeg->src.bytes_in_buffer = 0;
+          }
         }
         catch (...) {
           jpeg->currentError = std::current_exception();

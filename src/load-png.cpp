@@ -69,7 +69,6 @@ namespace james {
       std::istream& src;
       std::ios::iostate streamExceptionState;
 
-      jmp_buf jmpBuf;
       std::exception_ptr currentError;
 
       PNGLoaderState(std::istream& src)
@@ -136,7 +135,7 @@ namespace james {
     png_bytepp rowPtrs = nullptr;
     unsigned char* dstPtr = nullptr;
 
-    if (setjmp(state.jmpBuf)) {
+    if (setjmp(png_jmpbuf(state.libPNG.png))) {
       if (state.currentError) {
         std::rethrow_exception(state.currentError);
       }
